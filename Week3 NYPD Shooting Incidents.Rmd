@@ -1,0 +1,170 @@
+---
+title: "Week 3 NYPD Shooting Incidents"
+author: "Joseph H"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 5)
+```
+
+# NYPD Shooting Incidents
+
+
+This project will utilize the tidyverse library:
+
+```{r}
+library(tidyverse)
+```
+\
+
+## Step 1: Import the Data
+
+We will be importing data from the data.gov catalog. Please click the below link for the data source:
+
+[NYPD Shooting Incident Data (Historic)](https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic)
+
+I will specify the data location for R so that this can be reproducible for my audience:
+
+```{r}
+url <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+data <- read_csv(url)
+```
+
+Now we should review the data:
+
+```{r}
+summary(data)
+```
+
+As we can see in the above code block, there are about 20 distinct columns with about 27,000 records total. The data has recorded every shooting incident that was reported in New York City from 2006 to 2023. It records very useful data such as the borough and its geographical location, both perpetrator and victim age, sex and race, and also the time it occurred.
+
+I am interested in the PERP_AGE_GROUP, PERP_SEX, PERP_RACE and the VIC contraries to these columns to see what conclusions we can draw. I am also interested in the mapping of this data to see where there might be more shootings versus others and seeing if this relates to any social issues.
+\
+\
+
+## Step 2: Visualization and Analysis
+
+I will be exploring the most dangerous boroughs for each race, meaning which race has a higher likelihood of being involved as a victim of a shooting.
+
+```{r}
+data %>%
+    drop_na(PERP_RACE) %>%
+    ggplot(aes(x = BORO, fill = VIC_RACE))+
+    geom_bar(position = "dodge",
+             alpha = 1)+
+    theme_bw()+
+    theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())+
+    labs(title = "Victims of Shooting Incidents per Borough and Race",
+         x = "Borough",
+         y = "Number of Shooting Incidents")
+```
+
+The above shows a graph where Black New Yorkers are victims in the majority of shooting incidents reported in each borough. Here is a proportional view to compare:
+\
+```{r}
+data %>%
+    drop_na(PERP_RACE) %>%
+    ggplot(aes(x = BORO, fill = VIC_RACE))+
+    geom_bar(position = "fill",
+             alpha = 1)+
+    theme_bw()+
+    theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())+
+    labs(title = "Dangerous Boroughs per Race",
+         x = "Borough",
+         y = "Number of Shootings")
+```
+
+This even more portrays how Black New Yorkers are make up the victims of these shooting incidents.
+
+\
+
+Now we will explore how the gender of the victim plays a role in these shooting incidents:
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+data %>%
+    filter(VIC_SEX != "U") %>%
+    drop_na(BORO) %>%
+    ggplot(aes(x = BORO)) +
+    geom_histogram(stat = "count", aes(fill = BORO), position = "dodge") +
+    facet_wrap(~ VIC_SEX) +
+    ggtitle("Shooting Victims by Sex and Borough") +
+    theme_minimal() +
+    theme(axis.text.x=element_blank())
+```
+
+As we can see from the above graph, we have a female side labeled "F" and a male side labeled "M". We can clearly see men are victims of these shooting incidents significantly more than women in their respective boroughs. We can also see regardless of sex, the Bronx and Brooklyn have had much more incidents than other Boroughs. Finally, it seems Staten Island is the "safest" for both genders in terms of number of incidents reported.
+\
+
+#### Step 2.1: Further Analysis of Visualization
+
+Many questions can be raised from these graphs. The biggest one being, *"Why are Black New Yorkers falling victim to shooting incidents much more than many other races?"*
+
+The higher presence of police patrols in certain boroughs can be linked to the unfortunate issue of racial profiling experienced by African Americans in these communities. Sadly, these boroughs often see a disproportionate number of shooting incidents involving African American individuals. This troubling connection highlights the urgent need to address deep-rooted problems related to racial bias in law enforcement.
+
+I would also like to point out how much more men are affected by gun violence than women. There are too many cultural and societal factors which could contribute to this to cover in this report, but it is an important note to keep in mind.
+
+\
+\
+
+## Step 3: Logistic Regression Analysis
+
+### Overview
+
+This section presents the results of a logistic regression model used to predict the likelihood of a shooting incident being classified as a murder ("STATISTICAL_MURDER_FLAG") based on two selected independent variables: "BORO" (borough) and "PERP_AGE_GROUP" (age group of perpetrator).
+
+```{r}
+library(dplyr)
+
+selected_data <- data %>%
+  select(STATISTICAL_MURDER_FLAG, BORO, PERP_AGE_GROUP)
+
+model <- glm(STATISTICAL_MURDER_FLAG ~ BORO + PERP_AGE_GROUP, data = selected_data, family = "binomial")
+
+summary(model)
+
+```
+
+In summary, the logistic regression model suggests that the borough, specifically Brooklyn, and the age group of the perpetrator, particularly 18-24, are statistically significant factors in predicting whether a shooting incident is classified as a murder or not. The model, as assessed by the AIC, provides a reasonably good fit to the data.
+
+\
+
+## Step 4: Bias Identification
+
+#### Geospatial Bias:
+
+Geospatial bias is a critical concern in this dataset. It refers to the potential over-reporting of incidents in certain geographic areas, which can be influenced by varying levels of police presence or surveillance in different boroughs or neighborhoods.
+
+**Impact**: This bias could lead to an uneven distribution of reported incidents across the city, making it appear as if some areas have higher shooting incident rates solely due to more intensive policing efforts.
+
+**Mitigation**: It is essential to account for this bias when analyzing geographic patterns. Further research should explore whether incident reporting is influenced by policing disparities, as addressing this bias is vital for a fair assessment of the true trends in shooting incidents.
+\
+
+#### Data Collection Bias:
+
+Data collection bias can arise from the methods used to gather the information. It is crucial to understand how the data was collected and whether it solely comprises reported incidents, as this may not capture the complete scope of all incidents.
+
+**Impact**: If the data collection methods are influenced by reporting practices, it can result in a biased dataset that does not accurately reflect the full range of shooting incidents.
+
+**Mitigation**: To address data collection bias, a transparent reporting process and a clear understanding of how incidents are recorded is essential. Understanding the limitations of data collection can help in making more accurate interpretations of the findings.
+
+\
+
+## Conclusion
+
+This analysis underscores the importance of addressing racial disparities, particularly the over representation of Black victims in shooting incidents. It highlights the need to address racial bias in law enforcement and to promote more equitable policing practices.
+
+The gender disparities in shooting incidents, with men being the primary victims, also raise important societal and cultural questions that warrant further examination.
+
+Furthermore, the logistic regression analysis provides insights into the predictive factors for the classification of shooting incidents as murders, emphasizing the role of borough and perpetrator age group.
+
+In conclusion, this analysis serves as a starting point for understanding the complex dynamics of shooting incidents in New York City. It is crucial to acknowledge the biases in the data and use this information as a foundation for future research and efforts to promote a safer and more equitable city.
